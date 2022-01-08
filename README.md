@@ -98,8 +98,9 @@ The alert JSON structure should ideally conform to [PagerDuty's Common Event For
    
 ## Deployment
 
-Once you have set up the environment above, you can use the helper script `start.sh` to bootstrap the environment.  
-This will also pull the [NGINX](https://www.nginx.com/resources/glossary/nginx/) Docker image if it's not available locally.
+Once you have set up the environment above, you can use the helper script `start.sh` to bootstrap the environment. This will also pull the [NGINX](https://www.nginx.com/resources/glossary/nginx/) Docker image if it's not available locally.
+
+> NB: Ensure the right volume is mounted for the Flask service under `docker-compose.yaml` (OS Dependent)
 
 ### Start Event Handler
 
