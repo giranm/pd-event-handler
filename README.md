@@ -214,9 +214,9 @@ Invalid routing key:
 
 In the unlikely case of a race condition/API limit reached, the failed event will be put back to the queue to be redispatched once the API becomes available:
 ```
-2022-01-09T19:18:58.491274+00:00 | INFO | app | Current queue size: 22
-2022-01-09T19:18:58.491340+00:00 | INFO | app | Sending PD event: {'payload': {'summary': 'Server ldn-p3476z offline', 'severity': 'critical', 'component': 'ldn-p3476z', 'source': 'Elastic', 'group': 'london', 'class': 'alert', 'custom_details': {'health': '0'}}, 'dedup_key': '', 'event_action': 'trigger', 'routing_key': 'R02ERJS86INW82CV5KOAPRNFA0YLSOA0'}
-2022-01-09T19:18:58.674458+00:00 | WARNING | app | Unable to process request - pushing to the back of the queue
+2022-01-09T19:40:38.507972+00:00 | INFO | app | Current queue size: 22
+2022-01-09T19:40:38.508049+00:00 | INFO | app | Sending PD event: {'payload': {'summary': 'Server ldn-p3476z offline', 'severity': 'critical', 'component': 'ldn-p3476z', 'source': 'Elastic', 'group': 'london', 'class': 'alert', 'custom_details': {'health': '0'}}, 'dedup_key': '', 'event_action': 'trigger', 'routing_key': 'R0*********REDACTED************0'}
+2022-01-09T19:40:38.697300+00:00 | WARNING | app | Unable to process request (Events API Status Code: 429) - pushing to the back of the queue
 ```
 
 #### Example: `$ docker stats`
