@@ -1,63 +1,70 @@
 # PagerDuty Event Handler
-This repo contains source code and a Docker Compose environment for the PagerDuty Event Handler.  
-It has been created to allow organisations to send large numbers of event/alerting data into PagerDuty, without events being dropped due to API rate limits.  
+This repo contains source code and a Docker Compose environment for a middleware PagerDuty Event Handler.  
+It allows organisations to send alert/event data into PagerDuty with the following capabilities:
+* Rate limit queuing to ensure events are not being dropped due to API rate limits
+* Horizontal scaling of PagerDuty event routing keys to support higher event ingestion rates
 
 We strongly recommend that this application be used with meaningful alert data [(see PD-CEF)](https://support.pagerduty.com/docs/pd-cef), rather than sending noisy/unhelpful alert data structures. 
 
-<kbd>
-<img width="1000" alt="Screenshot 2021-11-05 at 18 35 16" src="https://user-images.githubusercontent.com/20474443/148660068-acad1396-fe2a-4860-9644-28b5fe2211ec.png">
-</kbd>
+## Disclaimer
+
+> **:warning: This open-source solution is not officially supported by PagerDuty - please use this at your own risk.  
+> PagerDuty also reserves the right to suspend accounts per [ToS](https://www.pagerduty.com/terms-of-service/) where appropriate.**
 
 ## Contents
-* [Disclaimer](#-warning--disclaimer)
+* [Solution Architecture](#solution-architecture)
 * [Prerequisites](#prerequisites)
 * [Setup](#setup)
 * [Deployment](#deployment)
+* [License](#license)
 
-## :warning: Disclaimer
+## Solution Architecture
 
-> **This open-source solution is not officially supported by PagerDuty - please use this at your own risk.  
-> PagerDuty also reserves the right to suspend accounts per [ToS](https://www.pagerduty.com/terms-of-service/) where appropriate.**
+![PagerDuty Event Handler - Architecture](https://user-images.githubusercontent.com/20474443/148664005-a66c35d0-54fb-4087-9a0d-2b149163f181.png)
 
 ## Prerequisites
 
-##### PagerDuty
+#### PagerDuty
 
 - Access to a domain: https://www.pagerduty.com/sign-up/
 - Valid event routing keys [(Global Rulesets preferred)](https://support.pagerduty.com/docs/rulesets#section-global-rulesets)
 
-##### Docker Compose
+#### Docker Compose
 
 - Docker Desktop: https://docs.docker.com/get-docker/
 - Compose: https://docs.docker.com/compose/install/
-- The machine hosting Docker should be accessible monitoring tools sources over TCP Port `8080`
+- The machine hosting Docker should be accessible over TCP Port `8080` for incoming monitoring alerts
 
 ## Setup
 
 1. Clone repo (via SSH) into appropriate location and enter directory.
 
-    ```
+    ```bash
     $ git clone git@github.com:giranm/pd-event-handler.git
     ```
 
-    ```
+    ```bash
     $ cd pd-event-handler
     ```
    
 2. Update `flask/pd_routing_keys.txt` with valid PagerDuty event routing keys; at least 1 is required.
     > NB: If using Global Ruleset keys, please ensure consistent [event rules](https://support.pagerduty.com/docs/rulesets#create-event-rules) have been configured/replicated
 
-    ```
-    $ cat flask/pd_routing_keys.txt 
-    R0*********REDACTED************0
-    R0*********REDACTED************2
-    ```
+   ```bash
+   $ cat flask/pd_routing_keys.txt
+   ```
+   ```
+   R0*********REDACTED************0
+   R0*********REDACTED************2
+   ```
 
    
 3. Build Docker image for Flask application via `docker-compose`
 
-    ```
-    $ docker-compose build     
+   ```bash
+   $ docker-compose build
+   ```
+   ```     
     nginx uses an image, skipping
     Building flask
     [+] Building 11.7s (10/10) FINISHED                                                                                 
@@ -104,10 +111,13 @@ Once you have set up the environment above, you can use the helper script `start
 
 ### Start Event Handler
 
-The `start.sh` will verify the number of routing keys available and generate the relevant NGINX configuration.  
+`start.sh` will verify the number of routing keys available and generate the relevant NGINX configuration.  
 It also deploys the relevant Docker containers and provides an entrypoint on `localhost:8080` to accept incoming events.
+```bash
+$ ./start.sh
 ```
-$ ./start.sh 
+
+```
 Creating network "pd-event-handler_default" with the default driver
 Pulling nginx (nginx:1.20-alpine)...
 1.20-alpine: Pulling from library/nginx
@@ -125,26 +135,24 @@ Creating pd-event-handler_flask_2 ... done
 
 ### Verify Status of Event Handler
 
-The following commands can be used to check the status of the event handler:
-- `docker ps -a`
-- `docker logs <container name>`
-- `docker stats`
+The following Docker commands can be used to check the status of the event handler:
+- `$ docker ps -a`
+- `$ docker logs <container name>`
+- `$ docker stats`
 
-#### Example: docker ps -a
+#### Example: `$ docker ps -a`
 
 ```
-$ docker ps -a
 CONTAINER ID   IMAGE                    COMMAND                  CREATED          STATUS          PORTS                                               NAMES
 47174793f685   nginx:1.20-alpine        "/docker-entrypoint.…"   37 minutes ago   Up 37 minutes   80/tcp, 0.0.0.0:8080->8080/tcp, :::8080->8080/tcp   nginx
 d8301cdf2272   pd-event-handler_flask   "python app.py"          37 minutes ago   Up 37 minutes   5000/tcp                                            pd-event-handler_flask_1
 b1df3b666bd0   pd-event-handler_flask   "python app.py"          37 minutes ago   Up 37 minutes   5000/tcp                                            pd-event-handler_flask_2
 ```
 
-#### Example: docker logs nginx
+#### Example: `$ docker logs nginx`
 
 Initialisation:
 ```
-$ docker logs nginx
 /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
 /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
 /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
@@ -160,11 +168,10 @@ Processed alert:
 192.168.144.1 - - [08/Jan/2022:19:20:45 +0000] "POST / HTTP/1.1" 202 308 "-" "PostmanRuntime/7.28.4"
 ```
 
-#### Example: docker logs pd-event-handler_flask_1
+#### Example: `$ docker logs pd-event-handler_flask_1`
 
 Initialisation:
 ```
-$ docker logs pd-event-handler_flask_1
 2022-01-08T18:37:50.249805+00:00 | INFO | app | Running on container pd-event-handler_flask_1 (ID: d8301cdf2272)
 2022-01-08T18:37:50.253252+00:00 | INFO | app | Using Routing Key: R0*********REDACTED************0
 2022-01-08T18:37:51.078887+00:00 | INFO | app | Routing key verified
@@ -181,7 +188,7 @@ Processed alert:
 2022-01-08T19:20:46.267463+00:00 | INFO | app | Queue is empty - currently awaiting requests
 ```
 
-#### Example: docker stats
+#### Example: `$ docker stats`
 This is an interactive shell command which shows live stats of your Docker runtime.
 > High CPU (~100%) is expected behaviour for *idle* Flask instances; this drops when events are being processed.
 
@@ -194,8 +201,11 @@ b1df3b666bd0   pd-event-handler_flask_2   100.70%   23.73MiB / 11.7GiB   0.20%  
 
 ### Stop Event Handler
 
-```
+```bash
 $ docker-compose down
+```
+
+```
 Stopping nginx                    ... done
 Stopping pd-event-handler_flask_1 ... done
 Stopping pd-event-handler_flask_2 ... done
@@ -205,7 +215,36 @@ Removing pd-event-handler_flask_2 ... done
 Removing network pd-event-handler_default
 ```
 
+No containers should be running (see below output)
+```bash
+$ docker ps -a
 ```
-$ docker ps -a 
+
+```
 CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+```
+
+## License
+```
+MIT License
+
+Copyright (c) 2022 Giran Moodley
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
