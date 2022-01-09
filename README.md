@@ -133,6 +133,11 @@ Creating pd-event-handler_flask_1 ... done
 Creating pd-event-handler_flask_2 ... done
 ```
 
+If `flask/pd_routing_keys.txt` is not populated, the script will exit with the following message:
+```
+No routing keys detected under flask/pd_routing_keys.txt - terminating script
+```
+
 ### Verify Status of Event Handler
 
 The following Docker commands can be used to check the status of the event handler:
@@ -147,6 +152,12 @@ CONTAINER ID   IMAGE                    COMMAND                  CREATED        
 47174793f685   nginx:1.20-alpine        "/docker-entrypoint.…"   37 minutes ago   Up 37 minutes   80/tcp, 0.0.0.0:8080->8080/tcp, :::8080->8080/tcp   nginx
 d8301cdf2272   pd-event-handler_flask   "python app.py"          37 minutes ago   Up 37 minutes   5000/tcp                                            pd-event-handler_flask_1
 b1df3b666bd0   pd-event-handler_flask   "python app.py"          37 minutes ago   Up 37 minutes   5000/tcp                                            pd-event-handler_flask_2
+```
+
+Failed containers will exit, such as an invalid routing key provided for the Flask application:
+```
+CONTAINER ID   IMAGE                    COMMAND                  CREATED          STATUS                      PORTS      NAMES
+ce9b02632506   pd-event-handler_flask   "python app.py"          38 seconds ago   Exited (1) 37 seconds ago   5000/tcp   pd-event-handler_flask_1
 ```
 
 #### Example: `$ docker logs nginx`
@@ -168,6 +179,12 @@ Processed alert:
 192.168.144.1 - - [08/Jan/2022:19:20:45 +0000] "POST / HTTP/1.1" 202 308 "-" "PostmanRuntime/7.28.4"
 ```
 
+Upstream Flask container offline/unreachable; event routed to next available container: 
+```
+2022/01/09 19:08:41 [error] 33#33: *2 connect() failed (113: Host is unreachable) while connecting to upstream, client: 192.168.160.1, server: , request: "POST / HTTP/1.1", upstream: "http://192.168.160.3:5000/", host: "localhost:8080"
+192.168.160.1 - - [09/Jan/2022:19:08:41 +0000] "POST / HTTP/1.1" 202 308 "-" "PostmanRuntime/7.28.4"
+```
+
 #### Example: `$ docker logs pd-event-handler_flask_1`
 
 Initialisation:
@@ -186,6 +203,20 @@ Processed alert:
 2022-01-08T19:20:45.461843+00:00 | INFO | app | Sending PD event: {'payload': {'summary': 'Server ldn-p3476z offline', 'severity': 'critical', 'component': 'ldn-p3476z', 'source': 'Elastic', 'group': 'london', 'class': 'alert', 'custom_details': {'health': '0'}}, 'dedup_key': '', 'event_action': 'trigger', 'routing_key': 'R0*********REDACTED************0'}
 2022-01-08T19:20:46.267280+00:00 | INFO | app | PD server response: {'status': 'success', 'message': 'Event processed', 'dedup_key': 'f9d383d1282c4987b5ea0e8830d862da'}
 2022-01-08T19:20:46.267463+00:00 | INFO | app | Queue is empty - currently awaiting requests
+```
+
+Invalid routing key:
+```
+2022-01-09T18:59:55.249805+00:00 | INFO | app | Running on container pd-event-handler_flask_1 (ID: ce9b02632506)
+2022-01-09T18:59:55.253252+00:00 | INFO | app | Using Routing Key: INVALID_KEY
+2022-01-09T18:59:56.194389+00:00 | CRITICAL | app | Invalid routing key provided - terminating server
+```
+
+In the unlikely case of a race condition/API limit reached, the failed event will be put back to the queue to be redispatched once the API becomes available:
+```
+2022-01-09T19:18:58.491274+00:00 | INFO | app | Current queue size: 22
+2022-01-09T19:18:58.491340+00:00 | INFO | app | Sending PD event: {'payload': {'summary': 'Server ldn-p3476z offline', 'severity': 'critical', 'component': 'ldn-p3476z', 'source': 'Elastic', 'group': 'london', 'class': 'alert', 'custom_details': {'health': '0'}}, 'dedup_key': '', 'event_action': 'trigger', 'routing_key': 'R02ERJS86INW82CV5KOAPRNFA0YLSOA0'}
+2022-01-09T19:18:58.674458+00:00 | WARNING | app | Unable to process request - pushing to the back of the queue
 ```
 
 #### Example: `$ docker stats`
